@@ -1,0 +1,122 @@
+---
+title: "Kalk Bay Beach Cleanup 2019/07/12"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(tidyr)
+library(shiny)
+```
+
+-----------------------------------------------------------------------
+
+```{r}
+
+brands <- read.csv("brands.csv")
+counts <- read.csv("Counts.csv")
+weight <- read.csv("Weight.csv")
+
+```
+
+Row
+-------------------------------------------------------------
+
+### Total items collected
+```{r}
+valueBox(sum(counts$Total.Count.land.and.underwater), icon = "fa-list-ol")
+
+```
+
+### Items collected per person
+```{r}
+
+valueBox(round(sum(counts$Total.Count.land.and.underwater)/71, 2), icon = "fa-calculator")
+```
+
+
+### Kilograms total weight collected
+```{r}
+
+valueBox(sum(weight$Total.Weight.in.Kg, na.rm = TRUE), icon = "far fa-weight-hanging")
+
+```
+
+
+### Percentage alcohol items
+```{r}
+
+per <- brands %>% 
+  group_by(Category) %>% 
+  tally(total.land.and.underwater) %>% 
+  mutate(prop = prop.table(n)*100) %>% 
+  filter(Category == "Alcohol ")
+
+rate <- round(as.numeric(per[1, 3]), digits = 2)
+
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)
+))
+
+```
+
+Row
+----------------------------------------------------------------------
+
+### Land vs Water
+```{r}
+
+#subset activities
+activity <- counts[c(31, 34)]
+# change data format
+activity_gather <- gather(activity, activity, items_collected, Total.Land:Total.Underwater)
+activity_gather %>% 
+  group_by(activity) %>% 
+  summarise(n = sum(items_collected, na.rm = TRUE)) %>% 
+  plot_ly(labels = ~activity, 
+          values = ~n) %>% 
+  add_pie()
+```
+
+### Top 10 items collected
+```{r}
+
+g <- counts %>% 
+  group_by(Item) %>% 
+  summarise(n = sum(Total.Count.land.and.underwater, na.rm = TRUE)) %>% 
+  arrange(desc(n)) %>% 
+  head(10) %>% 
+  ggplot(., aes(x = reorder(Item, -n), y = n)) +
+  geom_bar(stat = "Identity", position = "Dodge", fill = "blue") +
+  xlab("Items collected") +
+  ylab("Item")+
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+ggplotly(g)
+
+```
+
+
+### Most common brands collected
+```{r}
+
+h <- brands %>% 
+  group_by(Holding.Company) %>% 
+  summarise(n = sum(total.land.and.underwater, na.rm = TRUE)) %>% 
+  arrange(desc(n)) %>% 
+  head(10) %>% 
+  ggplot(., aes(x = reorder(Holding.Company, -n), y = n)) +
+  geom_bar(stat = "Identity", position = "Dodge", fill = "red") +
+  xlab("Holding Company") +
+  ylab("Items of trash collected") +
+  theme(axis.text.x=element_text(angle=45, hjust=1))
+
+ggplotly(h)
+```
