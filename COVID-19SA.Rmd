@@ -1,0 +1,147 @@
+---
+title: "COVID19 cases in South Africa"
+output: 
+  html_document: 
+    toc: true
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+# install libraries
+library(RCurl)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(plotly)
+library(patchwork)
+```
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+# collect and create dataframes
+cc <- getURL("https://raw.githubusercontent.com/dsfsi/covid19za/master/data/covid19za_provincial_cumulative_timeline_confirmed.csv")
+CaseConfirm <- read.csv(text = cc)
+tt <- getURL("https://raw.githubusercontent.com/dsfsi/covid19za/master/data/covid19za_timeline_testing.csv")
+test <- read.csv(text = tt)
+
+```
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+# clean data
+CaseConfirm$date <- as.Date(CaseConfirm$date, format = "%d-%m-%Y")
+test$date <- as.Date(test$date, format = "%d-%m-%Y")
+
+CaseConfirm_pivotLong <- CaseConfirm %>% 
+  select(-YYYYMMDD) %>% 
+  pivot_longer(-date, names_to = "Province", values_to = "NumberCases")
+
+# CpP = Case per province
+CpP <- ggplot(data = CaseConfirm_pivotLong, aes(x = date, y = NumberCases, col = Province)) +
+  geom_line(size = 1.2) +
+  scale_x_date(breaks = "3 days") +
+  theme_classic() +
+  labs(title = "Number of cases per province", x = "Date", y = "Number of cases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# CpN = Cases per nation
+NationalCases <- CaseConfirm_pivotLong %>% 
+  group_by(date) %>% 
+  summarise(NumberCases = sum(NumberCases))
+CpN <- ggplot(data = NationalCases, aes(x = date, y = NumberCases)) +
+  geom_line(size = 1) +
+  scale_x_date(breaks = "3 day") +
+  theme_classic() +
+  labs(title = "Number of cases in South Africa", x = "Date", y = "Number of cases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+
+NationalCases <- NationalCases %>% 
+  mutate(NewCases = NumberCases - lag(NumberCases, default = first(NumberCases)))
+
+new <- ggplot(data = NationalCases, aes(x = date, y = NewCases)) +
+  geom_bar(stat = "Identity") +
+  theme_classic() +
+  scale_x_date(breaks = "4 day") +
+  xlab("Date") +
+  ylab("Number of cases") +
+  labs(title = "New cases per day") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+
+# Positive vs negative test
+test_all <- test %>%  
+  select(date, cumulative_tests)
+test_all <- test_all %>% 
+  mutate(newtests = cumulative_tests - lag(cumulative_tests, default = first(cumulative_tests)))
+
+newTest <- test_all %>% 
+  select(date, newtests)
+newCase <- NationalCases %>% 
+  select(date, NewCases)
+
+TestvsCase <- left_join(newTest, newCase, by = "date") %>% 
+  filter(NewCases >= 0) %>% 
+  mutate(per = (NewCases/newtests)*100)
+
+pivotTestvsCase <- left_join(newTest, newCase, by = "date") %>% 
+  filter(NewCases >= 0) %>% 
+  pivot_longer(-date, names_to = "Group", values_to = "NewNumber")
+
+# tests per cases
+perc <- ggplot(data = TestvsCase, aes(x = date, y = per)) +
+  geom_bar(stat = "Identity", fill = "red", col = "black") +
+  theme_classic() +
+  scale_x_date(breaks = "3 day") +
+  xlab("Date") +
+  ylab("Percentage") +
+  labs(title = "Percentage daily positive cases to daily tests conducted") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+```
+
+
+
+```{r echo= FALSE, warning=FALSE}
+
+ggplotly(CpP)
+
+```
+
+
+
+```{r echo= FALSE, warning=FALSE}
+
+ggplotly(CpN)
+
+```
+
+
+
+```{r echo= FALSE, warning=FALSE}
+ggplotly(new)
+
+```
+
+
+
+
+
+
+
+
+
+

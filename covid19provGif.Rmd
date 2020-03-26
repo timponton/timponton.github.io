@@ -1,0 +1,67 @@
+---
+title: "Covid19 Animate"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+
+# install libraries
+library(RCurl)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(plotly)
+library(patchwork)
+library(gganimate)
+library(gifski)
+```
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+# collect and create dataframes
+cc <- getURL("https://raw.githubusercontent.com/dsfsi/covid19za/master/data/covid19za_provincial_cumulative_timeline_confirmed.csv")
+CaseConfirm <- read.csv(text = cc)
+tt <- getURL("https://raw.githubusercontent.com/dsfsi/covid19za/master/data/covid19za_timeline_testing.csv")
+test <- read.csv(text = tt)
+
+```
+
+```{r echo= FALSE, warning=FALSE, include=FALSE}
+# clean data
+CaseConfirm$date <- as.Date(CaseConfirm$date, format = "%d-%m-%Y")
+test$date <- as.Date(test$date, format = "%d-%m-%Y")
+
+CaseConfirm_pivotLong <- CaseConfirm %>% 
+  select(-YYYYMMDD) %>% 
+  pivot_longer(-date, names_to = "Province", values_to = "NumberCases")
+
+# CpP = Case per province
+CpP <- ggplot(data = CaseConfirm_pivotLong, aes(x = date, y = NumberCases, col = Province)) +
+  geom_line(size = 1.2) +
+  scale_x_date(breaks = "3 days") +
+  theme_classic() +
+  labs(title = "Number of cases per province", x = "Date", y = "Number of cases") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+
+```{r echo= FALSE, warning=FALSE, }
+
+CpP +
+  transition_reveal(date)
+
+
+
+```
+
+
+
+
+
+
